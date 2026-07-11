@@ -2,7 +2,7 @@
 
 ## Содержание
 
-1. Фундамент: потоки и пулы (~25 мин)
+1. Фундамент: потоки и пулы
     1. 1. Что такое поток (Thread)
         - Поток ОС vs managed-поток, размер стека (1 МБ по умолчанию)
         - Thread — создание, Start, Join, IsBackground, приоритеты
@@ -19,133 +19,133 @@
         - Parallelism — исполнение (много задач одновременно)
         - Parallel.For, Parallel.ForEach, Parallel.Invoke
         - Демо: 01_ThreadBasics.cs — секция "Parallel.For vs Sequential"
-2. Эволюция асинхронности (~15 мин)
-    2. 1. Три эпохи
+2. Эволюция асинхронности
+    1. 1. Три эпохи
         - APM (IAsyncResult) — BeginRead/EndRead, callback hell
         - EAP (event-based) — WebClient, события
         - TAP (Task-based) — async/await, стандарт с C# 5
-    2. 2. Coroutine vs async/await
+    1. 2. Coroutine vs async/await
         - Coroutine (Unity) — IEnumerator, yield return, ручной драйвер
         - async/await — state machine генерируется компилятором
         - Ключевое отличие: await возвращает управление caller'у, coroutine — нет (без yield)
-    2. 3. async/await под капотом
+    1. 3. async/await под капотом
         - IAsyncStateMachine, AsyncTaskMethodBuilder
         - Как компилятор разворачивает await в state machine
         - SynchronizationContext — UI/ASP.NET vs Console
         - Демо: 02_AsyncAwait.cs — разница контекстов, ConfigureAwait(false)
 3. Task — основной инструмент (~20 мин)
-    3. 1. Task vs Thread
+    1. 1. Task vs Thread
         - Task — это обещание (promise), не поток
         - Task может выполниться синхронно, в пуле, в IO-потоке
-    3. 2. Создание и запуск
+    1. 2. Создание и запуск
         - Task.Run, Task.Factory.StartNew, new Task(...)
         - Task.FromResult, Task.CompletedTask, Task.FromException
         - Task.WhenAll, Task.WhenAny — композиция
-    3. 3. Галя! Отмена!!!
+    1. 3. Галя! Отмена!!!
         - CancellationToken, CancellationTokenSource
         - ThrowIfCancellationRequested, Register, linked tokens
         - Graceful shutdown
-    3. 4. Обработка ошибок
+    1. 4. Обработка ошибок
         - AggregateException при .Wait(), await разворачивает первое исключение
         - Демо: 03_TaskDeepDive.cs — все подразделы 3.1-3.4 в одном файле
-4. Deadlock — как его получить и разрешить (~10 мин)
-    4. 1. Классический deadlock 
+4. Deadlock — как его получить и разрешить
+    1. 1. Классический deadlock 
         - deadlock в UI/ASP.NET контексте `var task = DoAsync(); task.Wait();`
         - Механизм: UI-поток ждёт Task, Task ждёт UI-поток для continuation
-    4. 2. Как разрешить
+    1. 2. Как разрешить
         - ConfigureAwait(false) везде в библиотеках
         - async all the way — не блокировать
         - Task.Run(() => DoAsync()).GetAwaiter().GetResult() — hack для legacy
-    4. 3. Два lock-а — залог deadlock-а (deadlock между потоками)
+    1. 3. Два lock-а — залог deadlock-а (deadlock между потоками)
         - Классический пример: Thread 1 захватывает Lock A, ждёт Lock B; Thread 2 — наоборот
-    4. 4. Демо
+    1. 4. Демо
         - Демо: 04_Deadlock.cs — воспроизведение + 4 способа фикса
-5. async void — тёмная сторона (~5 мин)
+5. async void — тёмная сторона
     - Почему существует: обратная совместимость с event handlers
     - Исключения: не попадают в Task, летят в SynchronizationContext
     - Нельзя await, нельзя обработать снаружи
     - Правило: async void только для event handlers, всё остальное — async Task
     - Демо: 05_AsyncVoid.cs — показать "пропадающее" исключение
-6. ValueTask (~10 мин)
-    6. 1. Проблема Task
+6. ValueTask
+    1. 1. Проблема Task
         - Класс, аллокация в heap, GC pressure
         - В hot path (кэш, синхронные завершения) — дорого
-    6. 2. ValueTask
+    1. 2. ValueTask
         - struct, 8 байт, stack allocation
         - Ограничения: один await, нельзя WhenAll
         - IValueTaskSource — переиспользование (как в Socket, FileStream)
-    6. 3. Когда использовать
+    1. 3. Когда использовать
         - Метод завершается синхронно >90% случаев
         - Hot path, миллионы вызовов
         - Демо: 06_TaskVsValueTask.cs — benchmark через Stopwatch + GC.GetTotalMemory
-7. Примитивы синхронизации (~25 мин) — ОСНОВНОЙ БЛОК
-    7. 1. lock (Monitor)
+7. Примитивы синхронизации
+    1. 1. lock (Monitor)
         - Как работает: object header, thin lock → fat lock
         - Подводные камни: deadlock между двумя lock, reentrancy
         - Monitor.Enter/TryEnter/Exit — явный контроль
         - Демо: 07_LockDemo.cs — секции 1-4 (race condition → lock → Interlocked)
-    7. 2. Mutex
+    1. 2. Mutex
         - Межпроцессный, named mutex
         - WaitOne/ReleaseMutex, abandoned mutex
         - Когда нужен: глобальный ресурс, single-instance app
         - Демо: 07_LockDemo.cs — секция 5 (named mutex, удержание 30 сек)
         - Демо: MutexApp.Second — второе приложение, пытается захватить тот же mutex
-    7. 3. Semaphore / SemaphoreSlim
+    1. 3. Semaphore / SemaphoreSlim
         - Ограничение параллелизма: N потоков одновременно
         - SemaphoreSlim — async-friendly, WaitAsync()
         - Сценарии: throttling, connection pool, rate limiter
         - Демо: 08_SemaphoreDemo.cs — throttling HTTP-запросов к http://89.22.229.58:8080
-    7. 4. volatile
+    1. 4. volatile
         - Memory model: reordering, CPU cache coherence
         - volatile — запрещает reordering, но НЕ атомарность
         - Когда нужен: flag-переменные между потоками
         - Когда НЕ нужен: Interlocked, lock, Volatile.Read/Write
         - Демо: 09_VolatileDemo.cs — секции 1-2 (volatile flag, Interlocked)
-    7. 5. Interlocked
+    1. 5. Interlocked
         - Increment, CompareExchange, Exchange
         - Lock-free примитивы
         - Volatile.Read/Write — явные барьеры
         - Демо: 09_VolatileDemo.cs — секции 2-4 (Interlocked, Volatile.Read/Write)
-8. ThreadLocal vs AsyncLocal (~10 мин)
-    8. 1. ThreadLocal
+8. ThreadLocal vs AsyncLocal
+    1. 1. ThreadLocal
         - Данные привязаны к потоку
         - Caveat: в ThreadPool потоки переиспользуются — ThreadLocal может "протекать"
         - Демо: 10_ThreadLocalAsyncLocal.cs — секции 1-2 (ThreadLocal, leak в ThreadPool)
-    8. 2. AsyncLocal
+    1. 2. AsyncLocal
         - Данные текут через ExecutionContext
         - Копирование при await (flowing)
         - Сценарии: correlation ID, tenant ID, transaction context
         - Демо: 10_ThreadLocalAsyncLocal.cs — секции 3-5 (AsyncLocal flow, correlation ID)
-9. Dictionary vs ConcurrentDictionary (~10 мин)
-    9. 1. Почему Dictionary не thread-safe
+9. Dictionary vs ConcurrentDictionary
+    1. 1. Почему Dictionary не thread-safe
         - Race condition при resize: потеря данных, infinite loop (в .NET Framework)
         - Reader/writer race
-    9. 2. ConcurrentDictionary
+    1. 2. ConcurrentDictionary
         - Lock striping (segmented locking)
         - TryAdd, TryGetValue, AddOrUpdate, GetOrAdd
         - GetOrAdd — valueFactory может вызваться дважды!
         - Snapshot-операции (ToArray, Values) — моментальный снимок
-    9. 3. Когда что использовать
+    1. 3. Когда что использовать
         - Read-heavy: lock + Dictionary или ImmutableDictionary + Interlocked.Swap
         - Write-heavy: ConcurrentDictionary
         - Демо: 11_DictionaryDemo.cs — benchmark, показать race в Dictionary
-10. Blazor и асинхронность (~15 мин)
-    10. 1. Blazor Server vs WebAssembly — модель потоков
+10. Blazor и асинхронность
+    1. 1. Blazor Server vs WebAssembly — модель потоков
         - Blazor Server: SignalR-цикл, один Dispatcher (аналог SynchronizationContext)
         - Blazor WASM: single-threaded (пока), нет настоящих потоков, всё — task-based
         - Почему InvokeAsync нужен в Blazor Server
-    10. 2. InvokeAsync / Dispatcher
+    1. 2. InvokeAsync / Dispatcher
         - Проблема: background-поток пытается изменить состояние компонента
         - Решение: await InvokeAsync(() => { ... StateHasChanged(); })
         - Демо (консоль): 12_BlazorAsyncSimulation.cs — эмуляция Dispatcher/InvokeAsync через SynchronizationContext
         - Демо (Blazor Server): BlazorServerDemo/Components/Pages/InvokeAsyncDemo.razor — Timer → ThreadPool → InvokeAsync
-    10. 3. JSInterop и асинхронность
+    1. 3. JSInterop и асинхронность
         - IJSRuntime.InvokeAsync<T>() — всегда async, потому что crossing JS/.NET boundary
         - IJSObjectReference, await using для disposable references
         - Callback из JS в C#: DotNetObjectReference, [JSInvokable]
         - Демо (Blazor Server): BlazorServerDemo/Components/Pages/JsInteropDemo.razor — IJSRuntime + [JSInvokable]
         - Демо (Blazor WASM): BlazorWasmDemo/Pages/JsInteropDemo.razor — JSInterop в WASM
-    10. 4. Lifecycle и async
+    1. 4. Lifecycle и async
         - OnInitializedAsync — первый render происходит ДО завершения (Server)
         - OnAfterRenderAsync — после рендера
         - StateHasChanged — когда нужен, когда нет (автоматически после lifecycle-методов)
