@@ -1,0 +1,96 @@
+@page "/jsinterop"
+@inject IJSRuntime JS
+
+<PageTitle>JSInterop WASM</PageTitle>
+
+<h1>JSInterop in Blazor WASM</h1>
+
+<p>
+    In WASM, JSInterop crosses the .NET/JS boundary within the browser.
+    It is <strong>always async</strong> because it involves serialization/deserialization.
+</p>
+
+<section style="border: 1px solid #ccc; padding: 1rem; margin: 1rem 0; border-radius: 4px;">
+    <h3>1. Basic JS calls</h3>
+
+    <button @onclick="ShowAlert">alert()</button>
+    <button @onclick="ShowPrompt">prompt()</button>
+    <button @onclick="ConsoleLog">console.log()</button>
+
+    @if (!string.IsNullOrEmpty(_result))
+    {
+        <p><strong>Result:</strong> @_result</p>
+    }
+</section>
+
+<section style="border: 1px solid #ccc; padding: 1rem; margin: 1rem 0; border-radius: 4px;">
+    <h3>2. DOM manipulation via JS</h3>
+    <button @onclick="ChangePageTitle">Change document.title</button>
+    <button @onclick="ResetPageTitle">Reset document.title</button>
+</section>
+
+<section style="border: 1px solid #ccc; padding: 1rem; margin: 1rem 0; border-radius: 4px;">
+    <h3>3. [JSInvokable] — C# called from JS</h3>
+    <button @onclick="RegisterJsCallback">Register C# callback, then call from JS</button>
+    <p>@_callbackResult</p>
+</section>
+
+<div style="margin-top: 1rem; padding: 1rem; background: #f5f5f5; border-radius: 4px;">
+    <h3>WASM vs Server JSInterop differences:</h3>
+    <ul>
+        <li>WASM: runs in same process (browser), but still async (serialization overhead)</li>
+        <li>Server: crosses SignalR network boundary</li>
+        <li>Both: <code>InvokeAsync&lt;T&gt;</code> API is identical</li>
+    </ul>
+</div>
+
+@code {
+    private string _result = "";
+    private string _callbackResult = "";
+    private DotNetObjectReference<WasmJsModel>? _objRef;
+
+    private async Task ShowAlert()
+    {
+        await JS.InvokeVoidAsync("alert", "Hello from Blazor WASM!");
+        _result = "alert shown";
+    }
+
+    private async Task ShowPrompt()
+    {
+        var result = await JS.InvokeAsync<string>("prompt", "Enter something:", "WASM");
+        _result = result ?? "(cancelled)";
+    }
+
+    private async Task ConsoleLog()
+    {
+        await JS.InvokeVoidAsync("console.log", "Message from .NET WASM", DateTime.Now);
+        _result = "check browser console (F12)";
+    }
+
+    private async Task ChangePageTitle()
+    {
+        await JS.InvokeVoidAsync("eval", "document.title = 'WASM Title Changed!'");
+    }
+
+    private async Task ResetPageTitle()
+    {
+        await JS.InvokeVoidAsync("eval", "document.title = 'Blazor WASM — Async Demos'");
+    }
+
+    private async Task RegisterJsCallback()
+    {
+        _objRef?.Dispose();
+        _objRef = DotNetObjectReference.Create(new WasmJsModel());
+
+        await JS.InvokeVoidAsync(@"
+            (function(objRef) {
+                objRef.invokeMethodAsync('GetCurrentTime')
+                    .then(r => window.__wasmCallbackResult = r);
+            })
+        ", _objRef);
+
+        await Task.Delay(500);
+        var jsResult = await JS.InvokeAsync<string>("eval", "window.__wasmCallbackResult || '(no result)'");
+        _callbackResult = $".NET returned: {jsResult}";
+    }
+}

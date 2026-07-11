@@ -1,0 +1,138 @@
+@page "/singlethreaded"
+@implements IDisposable
+
+<PageTitle>Single-Threaded WASM</PageTitle>
+
+<h1>Blazor WASM: Single-Threaded Nature</h1>
+
+<p>
+    Blazor WASM runs on a <strong>single thread</strong> in the browser.
+    <code>Task.Delay</code> works (uses JS timers), but <code>Thread.Sleep</code> blocks the entire UI.
+</p>
+
+<section style="border: 1px solid #ccc; padding: 1rem; margin: 1rem 0; border-radius: 4px;">
+    <h3>1. Task.Delay — cooperative, non-blocking</h3>
+    <p>Count: @_taskDelayCount</p>
+    <button @onclick="StartTaskDelayLoop" disabled="@_isRunning">Start async loop (1s interval)</button>
+    <button @onclick="StopLoop" disabled="@(!_isRunning)">Stop</button>
+    <p style="color: green;">UI remains responsive while Task.Delay is running</p>
+</section>
+
+<section style="border: 1px solid #ccc; padding: 1rem; margin: 1rem 0; border-radius: 4px;">
+    <h3>2. Thread info</h3>
+    <button @onclick="ShowThreadInfo">Show thread info</button>
+    @if (!string.IsNullOrEmpty(_threadInfo))
+    {
+        <pre>@_threadInfo</pre>
+    }
+</section>
+
+<section style="border: 1px solid #ccc; padding: 1rem; margin: 1rem 0; border-radius: 4px;">
+    <h3>3. Parallel.For in WASM</h3>
+    <button @onclick="RunParallelFor">Run Parallel.For</button>
+    <p>@_parallelResult</p>
+    <p style="color: #888;">
+        Parallel.For runs sequentially in WASM because there's only 1 thread.
+        No actual parallelism occurs.
+    </p>
+</section>
+
+<div style="margin-top: 1rem; padding: 1rem; background: #f5f5f5; border-radius: 4px;">
+    <h3>Key differences: WASM vs Server</h3>
+    <table style="width: 100%; border-collapse: collapse;">
+        <tr style="border-bottom: 1px solid #ddd;">
+            <th style="padding: 0.5rem; text-align: left;">Feature</th>
+            <th style="padding: 0.5rem; text-align: left;">WASM</th>
+            <th style="padding: 0.5rem; text-align: left;">Server</th>
+        </tr>
+        <tr style="border-bottom: 1px solid #ddd;">
+            <td style="padding: 0.5rem;">Threads</td>
+            <td style="padding: 0.5rem;">Single-threaded</td>
+            <td style="padding: 0.5rem;">Multi-threaded (ThreadPool)</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #ddd;">
+            <td style="padding: 0.5rem;">Task.Delay</td>
+            <td style="padding: 0.5rem;">Works (JS timers)</td>
+            <td style="padding: 0.5rem;">Works (ThreadPool timer)</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #ddd;">
+            <td style="padding: 0.5rem;">Thread.Sleep</td>
+            <td style="padding: 0.5rem;">BLOCKS entire UI</td>
+            <td style="padding: 0.5rem;">Blocks only that thread</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #ddd;">
+            <td style="padding: 0.5rem;">InvokeAsync</td>
+            <td style="padding: 0.5rem;">Not needed (single thread)</td>
+            <td style="padding: 0.5rem;">Required from background threads</td>
+        </tr>
+        <tr>
+            <td style="padding: 0.5rem;">Parallel.For</td>
+            <td style="padding: 0.5rem;">Runs sequentially</td>
+            <td style="padding: 0.5rem;">Actual parallelism</td>
+        </tr>
+    </table>
+</div>
+
+@code {
+    private CancellationTokenSource? _cts;
+    private int _taskDelayCount;
+    private bool _isRunning;
+    private string _threadInfo = "";
+    private string _parallelResult = "";
+
+    private async Task StartTaskDelayLoop()
+    {
+        _isRunning = true;
+        _cts = new CancellationTokenSource();
+
+        try
+        {
+            while (!_cts.Token.IsCancellationRequested)
+            {
+                _taskDelayCount++;
+                StateHasChanged();
+                await Task.Delay(1000, _cts.Token);
+            }
+        }
+        catch (OperationCanceledException) { }
+
+        _isRunning = false;
+    }
+
+    private void StopLoop()
+    {
+        _cts?.Cancel();
+    }
+
+    private void ShowThreadInfo()
+    {
+        _threadInfo = $"""
+            Environment.ProcessorCount: {Environment.ProcessorCount}
+            Environment.CurrentManagedThreadId: {Environment.CurrentManagedThreadId}
+            Thread.CurrentThread.IsThreadPoolThread: {Thread.CurrentThread.IsThreadPoolThread}
+            Thread.CurrentThread.IsBackground: {Thread.CurrentThread.IsBackground}
+            """;
+    }
+
+    private void RunParallelFor()
+    {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var results = new System.Collections.Concurrent.ConcurrentBag<int>();
+
+        Parallel.For(0, 10, i =>
+        {
+            results.Add(Environment.CurrentManagedThreadId);
+            Thread.SpinWait(100_000);
+        });
+
+        sw.Stop();
+        var threads = results.Distinct().OrderBy(x => x).ToArray();
+        _parallelResult = $"Threads used: [{string.Join(", ", threads)}] — Time: {sw.ElapsedMilliseconds}ms";
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+}

@@ -1,0 +1,26 @@
+﻿@page "/"
+@rendermode InteractiveServer
+
+<PageTitle>Blazor Server — Async Demos</PageTitle>
+
+<h1>Blazor Server: Async & Multithreading Demos</h1>
+
+<p>Blazor Server uses a <strong>SignalR</strong> connection. All component logic runs on the server.</p>
+<p>A <strong>Dispatcher</strong> (similar to SynchronizationContext) ensures UI updates are serialized.</p>
+
+<nav style="margin-top: 2rem;">
+    <ul style="list-style: none; padding: 0;">
+        <li style="margin: 0.5rem 0;">
+            <a href="/invokeasync">1. InvokeAsync Demo</a>
+            <span>— background thread → UI update via InvokeAsync</span>
+        </li>
+        <li style="margin: 0.5rem 0;">
+            <a href="/jsinterop">2. JSInterop Demo</a>
+            <span>— IJSRuntime, [JSInvokable] callback</span>
+        </li>
+        <li style="margin: 0.5rem 0;">
+            <a href="/lifecycle">3. Lifecycle Demo</a>
+            <span>— OnInitializedAsync, first render timing</span>
+        </li>
+    </ul>
+</nav>

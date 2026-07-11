@@ -1,0 +1,23 @@
+﻿@page "/"
+
+<PageTitle>Blazor WASM — Async Demos</PageTitle>
+
+<h1>Blazor WebAssembly: Async Demos</h1>
+
+<p>
+    Blazor WASM runs <strong>entirely in the browser</strong> via WebAssembly.
+    It is <strong>single-threaded</strong> (no real Thread support), but async/await works via JS interop timers.
+</p>
+
+<nav style="margin-top: 2rem;">
+    <ul style="list-style: none; padding: 0;">
+        <li style="margin: 0.5rem 0;">
+            <a href="/jsinterop">1. JSInterop in WASM</a>
+            <span>— calling JS from .NET, receiving results</span>
+        </li>
+        <li style="margin: 0.5rem 0;">
+            <a href="/singlethreaded">2. Single-Threaded Demo</a>
+            <span>— Task.Delay works, Thread.Sleep blocks everything</span>
+        </li>
+    </ul>
+</nav>

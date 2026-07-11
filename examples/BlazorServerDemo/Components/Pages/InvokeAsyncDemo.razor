@@ -1,0 +1,82 @@
+@page "/invokeasync"
+@rendermode InteractiveServer
+@implements IDisposable
+
+<PageTitle>InvokeAsync Demo</PageTitle>
+
+<h1>InvokeAsync Demo</h1>
+
+<p>
+    A <code>System.Threading.Timer</code> fires callbacks on <strong>ThreadPool threads</strong>.
+    In Blazor Server, component state must be updated through the <strong>Dispatcher</strong> via <code>InvokeAsync</code>.
+</p>
+
+<div style="border: 1px solid #ccc; padding: 1rem; margin: 1rem 0; border-radius: 4px;">
+    <p><strong>Timer tick count:</strong> @_tickCount</p>
+    <p><strong>Last callback thread:</strong> @_lastThreadId</p>
+    <p><strong>Last update time:</strong> @_lastUpdate</p>
+    <p><strong>Is inside InvokeAsync:</strong> @_insideInvokeAsync</p>
+</div>
+
+<button @onclick="StartTimer" disabled="@_isRunning">Start Timer</button>
+<button @onclick="StopTimer" disabled="@(!_isRunning)">Stop Timer</button>
+
+<div style="margin-top: 1rem; padding: 1rem; background: #f5f5f5; border-radius: 4px;">
+    <h3>How it works:</h3>
+    <pre>
+_timer = new Timer(_ =>
+{
+    _lastThreadId = Environment.CurrentManagedThreadId;
+    InvokeAsync(() =>
+    {
+        _insideInvokeAsync = true;
+        _tickCount++;
+        _lastUpdate = DateTime.Now.ToString("HH:mm:ss.fff");
+        StateHasChanged();
+        _insideInvokeAsync = false;
+    });
+}, null, 0, 1000);
+    </pre>
+    <p>
+        Without <code>InvokeAsync</code>, calling <code>StateHasChanged()</code> from a ThreadPool thread
+        would throw: <em>"The current thread is not associated with the Dispatcher's synchronization context"</em>
+    </p>
+</div>
+
+@code {
+    private Timer? _timer;
+    private int _tickCount;
+    private int _lastThreadId;
+    private string _lastUpdate = "";
+    private bool _isRunning;
+    private bool _insideInvokeAsync;
+
+    private void StartTimer()
+    {
+        _isRunning = true;
+        _timer = new Timer(_ =>
+        {
+            _lastThreadId = Environment.CurrentManagedThreadId;
+            InvokeAsync(() =>
+            {
+                _insideInvokeAsync = true;
+                _tickCount++;
+                _lastUpdate = DateTime.Now.ToString("HH:mm:ss.fff");
+                StateHasChanged();
+                _insideInvokeAsync = false;
+            });
+        }, null, 0, 1000);
+    }
+
+    private void StopTimer()
+    {
+        _timer?.Dispose();
+        _timer = null;
+        _isRunning = false;
+    }
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
+    }
+}

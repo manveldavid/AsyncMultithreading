@@ -1,0 +1,99 @@
+@page "/lifecycle"
+@rendermode InteractiveServer
+
+<PageTitle>Lifecycle Demo</PageTitle>
+
+<h1>Blazor Lifecycle & Async</h1>
+
+<p>
+    In Blazor Server, <code>OnInitializedAsync</code> does <strong>NOT</strong> block the first render.
+    The component renders once with initial state, then re-renders when the async work completes.
+</p>
+
+<div style="border: 1px solid #ccc; padding: 1rem; margin: 1rem 0; border-radius: 4px;">
+    <h3>Lifecycle Timeline</h3>
+    <ul>
+        @foreach (var entry in _lifecycleLog)
+        {
+            <li><strong>@entry.Time</strong> — @entry.Message</li>
+        }
+    </ul>
+</div>
+
+<div style="border: 1px solid #ccc; padding: 1rem; margin: 1rem 0; border-radius: 4px;">
+    <h3>Component State</h3>
+    <p><strong>Data loaded:</strong> @(_data ?? "(loading...)")</p>
+    <p><strong>Render count:</strong> @_renderCount</p>
+</div>
+
+<button @onclick="SimulateLateUpdate">Simulate late background update</button>
+<p>@_lateUpdateMessage</p>
+
+<div style="margin-top: 1rem; padding: 1rem; background: #f5f5f5; border-radius: 4px;">
+    <h3>Key lifecycle methods:</h3>
+    <table style="width: 100%; border-collapse: collapse;">
+        <tr style="border-bottom: 1px solid #ddd;">
+            <td style="padding: 0.5rem;"><code>SetParametersAsync</code></td>
+            <td style="padding: 0.5rem;">Parameters set by parent</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #ddd;">
+            <td style="padding: 0.5rem;"><code>OnInitialized</code> / <code>OnInitializedAsync</code></td>
+            <td style="padding: 0.5rem;">First init. Server: first render happens BEFORE async completes</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #ddd;">
+            <td style="padding: 0.5rem;"><code>OnParametersSet</code> / <code>OnParametersSetAsync</code></td>
+            <td style="padding: 0.5rem;">When parameters change</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #ddd;">
+            <td style="padding: 0.5rem;"><code>OnAfterRender</code> / <code>OnAfterRenderAsync</code></td>
+            <td style="padding: 0.5rem;">After each render (JS interop safe here)</td>
+        </tr>
+        <tr>
+            <td style="padding: 0.5rem;"><code>Dispose</code> / <code>DisposeAsync</code></td>
+            <td style="padding: 0.5rem;">Cleanup (IDisposable / IAsyncDisposable)</td>
+        </tr>
+    </table>
+</div>
+
+@code {
+    private record LogEntry(string Time, string Message);
+
+    private readonly List<LogEntry> _lifecycleLog = new();
+    private string? _data;
+    private int _renderCount;
+    private string _lateUpdateMessage = "";
+
+    protected override void OnInitialized()
+    {
+        _lifecycleLog.Add(new(DateTime.Now.ToString("HH:mm:ss.fff"), "OnInitialized (sync) — first render pending"));
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _lifecycleLog.Add(new(DateTime.Now.ToString("HH:mm:ss.fff"), "OnInitializedAsync started — loading data..."));
+        StateHasChanged();
+
+        await Task.Delay(3000);
+
+        _data = "Data loaded after 3 seconds!";
+        _lifecycleLog.Add(new(DateTime.Now.ToString("HH:mm:ss.fff"), "OnInitializedAsync completed — data loaded"));
+        StateHasChanged();
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        _renderCount++;
+        _lifecycleLog.Add(new(DateTime.Now.ToString("HH:mm:ss.fff"),
+            $"OnAfterRender(firstRender={firstRender}) — render #{_renderCount}"));
+    }
+
+    private async Task SimulateLateUpdate()
+    {
+        _lateUpdateMessage = "Background work started...";
+        StateHasChanged();
+
+        await Task.Delay(2000);
+
+        _lateUpdateMessage = "Background work completed — StateHasChanged called automatically after event handler";
+    }
+}

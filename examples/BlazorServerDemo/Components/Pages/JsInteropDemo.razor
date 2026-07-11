@@ -1,0 +1,108 @@
+@page "/jsinterop"
+@rendermode InteractiveServer
+@inject IJSRuntime JS
+@implements IDisposable
+
+<PageTitle>JSInterop Demo</PageTitle>
+
+<h1>JSInterop Demo</h1>
+
+<p>
+    <code>IJSRuntime.InvokeAsync&lt;T&gt;()</code> is <strong>always async</strong> because it crosses the .NET/JS boundary via SignalR.
+</p>
+
+<section style="border: 1px solid #ccc; padding: 1rem; margin: 1rem 0; border-radius: 4px;">
+    <h3>1. Calling JS from .NET</h3>
+
+    <button @onclick="ShowAlert">alert()</button>
+    <button @onclick="ShowPrompt">prompt()</button>
+    <button @onclick="ShowConfirm">confirm()</button>
+
+    @if (!string.IsNullOrEmpty(_jsResult))
+    {
+        <p><strong>JS returned:</strong> @_jsResult</p>
+    }
+</section>
+
+<section style="border: 1px solid #ccc; padding: 1rem; margin: 1rem 0; border-radius: 4px;">
+    <h3>2. Calling .NET from JS ([JSInvokable])</h3>
+
+    <p>Click the button to execute JS that calls back into C#:</p>
+    <button @onclick="CallDotNetFromJs">Call .NET from JS</button>
+
+    @if (!string.IsNullOrEmpty(_dotNetResult))
+    {
+        <p><strong>.NET returned to JS, then back to UI:</strong> @_dotNetResult</p>
+    }
+</section>
+
+<section style="border: 1px solid #ccc; padding: 1rem; margin: 1rem 0; border-radius: 4px;">
+    <h3>3. Disposing JS object references</h3>
+    <p>
+        <code>IJSObjectReference</code> implements <code>IAsyncDisposable</code>.
+        Use <code>await using</code> to release JS-side resources.
+    </p>
+    <button @onclick="CreateAndDisposeJsObject">Create & Dispose JS Object</button>
+    <p>@_disposeMessage</p>
+</section>
+
+<div style="margin-top: 1rem; padding: 1rem; background: #f5f5f5; border-radius: 4px;">
+    <h3>Key points:</h3>
+    <ul>
+        <li><code>InvokeAsync&lt;T&gt;</code> — always async (crosses process boundary)</li>
+        <li><code>[JSInvokable]</code> — marks C# method callable from JS</li>
+        <li><code>DotNetObjectReference&lt;T&gt;</code> — wraps C# object for JS</li>
+        <li><code>IJSObjectReference</code> — use <code>await using</code> for disposal</li>
+    </ul>
+</div>
+
+@code {
+    private string _jsResult = "";
+    private string _dotNetResult = "";
+    private string _disposeMessage = "";
+    private DotNetObjectReference<JsInteropModel>? _objRef;
+
+    private async Task ShowAlert()
+    {
+        await JS.InvokeVoidAsync("alert", "Hello from Blazor Server!");
+        _jsResult = "alert shown";
+    }
+
+    private async Task ShowPrompt()
+    {
+        var result = await JS.InvokeAsync<string>("prompt", "Enter your name:", "World");
+        _jsResult = result ?? "(cancelled)";
+    }
+
+    private async Task ShowConfirm()
+    {
+        var result = await JS.InvokeAsync<bool>("confirm", "Do you agree?");
+        _jsResult = result ? "OK" : "Cancel";
+    }
+
+    private async Task CallDotNetFromJs()
+    {
+        _objRef?.Dispose();
+        _objRef = DotNetObjectReference.Create(new JsInteropModel());
+
+        var js = @"
+            (function(objRef) {
+                return objRef.invokeMethodAsync('GetServerTime')
+                    .then(result => result + ' (via JS round-trip)');
+            })
+        ";
+
+        _dotNetResult = await JS.InvokeAsync<string>(js, _objRef);
+    }
+
+    private async Task CreateAndDisposeJsObject()
+    {
+        await using var module = await JS.InvokeAsync<IJSObjectReference>("import", "data:text/javascript,export function hello() { return 'hi'; }");
+        _disposeMessage = "JS module created and will be disposed when leaving this scope (await using)";
+    }
+
+    public void Dispose()
+    {
+        _objRef?.Dispose();
+    }
+}
